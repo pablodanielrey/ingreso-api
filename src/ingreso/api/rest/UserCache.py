@@ -3,18 +3,18 @@ import redis
 
 class UserCache:
 
-    def __init__(self, host, port, users_getter, users_getter_dni, timeout=60 * 60 * 24 * 7):
+    def __init__(self, host, port, users_getter, ingresante_getter_sesion, timeout=60 * 60):
         self.redis_ = redis.StrictRedis(host=host, port=port, decode_responses=True)
         self.getter_usuario = users_getter
-        self.getter_usuario_dni = users_getter_dni
+        self.getter_ingresante_sesion = ingresante_getter_sesion
         self.timeout = timeout
 
-    def _setear_usuario_cache(self, usr):
+    def _setear_usuario_cache(self, usr, sid):
         uk = 'usuario_uid_{}'.format(usr['id'])
         self.redis_.hmset(uk, usr)
         self.redis_.expire(uk, self.timeout)
-
-        uk = 'usuario_dni_{}'.format(usr['dni'].lower().replace(' ',''))
+        
+        uk = 'ingresante_sesion_{}'.format(sid)
         self.redis_.hset(uk, 'uid', usr['id'])
         self.redis_.expire(uk, self.timeout)
 
@@ -29,13 +29,13 @@ class UserCache:
         self._setear_usuario_cache(usr)
         return usr
 
-    def obtener_usuario_por_dni(self, dni, token=None):
-        key = 'usuario_dni_{}'.format(dni.lower().replace(' ',''))
+    def obtener_usuario_por_sesion(self, sid, token=None):
+        key = 'ingresante_sesion_{}'.format(sid)
         if self.redis_.hexists(key,'uid'):
             uid = self.redis_.hget(key,'uid')
             return self.obtener_usuario_por_uid(uid, token=token)
 
-        usr = self.getter_usuario_dni(dni, token=token)
+        usr = self.getter_ingresante_sesion(sid, token=token)
         if not usr:
             return None
         self._setear_usuario_cache(usr)

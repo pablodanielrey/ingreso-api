@@ -4,12 +4,12 @@ import sys
 import base64
 import hashlib
 import os
-
+import uuid
 from flask import Flask, abort, make_response, jsonify, url_for, request, json, send_from_directory, send_file
 from flask_jsontools import jsonapi
-
 from rest_utils import register_encoder
 from .API import API
+from .UserCache import UserCache
 
 VERIFY_SSL = bool(int(os.environ.get('VERIFY_SSL',0)))
 OIDC_URL = os.environ['OIDC_URL']
@@ -20,7 +20,8 @@ API_BASE=os.environ['API_BASE']
 api = API()
 
 USUARIOS_URL = os.environ['USERS_API_URL']
-
+REDIS_HOST = os.environ.get('REDIS_HOST')
+REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
 
 app = Flask(__name__)
 app.debug = True
@@ -48,7 +49,34 @@ def options(path=None):
         return ('',204)
     return ('',204)
 
+"""
+    /////////// los getters de la cache //////////
+"""
 
+def _get_user_uuid(uuid, token=None):
+    query = '{}/usuarios/{}'.format(USUARIOS_URL, uuid)
+    r = api.get(query, token=token)
+    if not r.ok:
+        return None
+    usr = r.json()        
+    return usr
+
+def _ingresante_getter_sesion(sid, token=None):
+    return None
+
+cache = UserCache(REDIS_HOST, REDIS_PORT, _get_user_uuid, _ingresante_getter_sesion)
+
+
+def _parsear_usuario(usr):
+    return {
+        'id': usr['id'],
+        'nombre': usr['nombre'],
+        'apellido': usr['apellido'],
+        'dni': usr['dni'],
+        'genero': usr['genero'],
+        'correos': usr['mails']
+
+    }
 
 @app.route(API_BASE + '/verificar_dni/<dni>', methods=['GET'], provide_automatic_options=False)
 @jsonapi
@@ -60,39 +88,28 @@ def verificar_dni(dni):
         return r
     usrs = r.json()
     usr = usrs[0] if len(usrs) else None
-    if usr is None or 'tipo' not in usr or usr['tipo'] is None or usr['tipo'] != 'ingresante':
+    if usr is None: # or 'tipo' not in usr or usr['tipo'] is None or usr['tipo'] != 'ingresante':
         return ('no permitido', 401)
-    """
-        setear cache redis con los datos del usuario y clave ingrsante_sesion : datos
-    """
-    
+
+    sid = str(uuid.uuid4())[:8]
+    u = _parsear_usuario(usr)
+    cache._setear_usuario_cache(u, sid)    
     return {
-        'estado': ok,
-        'sesion': 'dsfgdfgdfgdfgfdgfgdfg'
+        'estado': 'ok',
+        'sesion': sid
     }
 
 
 @app.route(API_BASE + '/datos/<sesion>', methods=['GET'], provide_automatic_options=False)
 @jsonapi
 def obtener_datos(sesion):
-
-    
-    """
-        se chequea redis por la existencia de los datos de usuario y se retorna junto con un id de sesion nuevo
-
-        session = str(uuid.uuid4())
-
-
-
-        datos = request.get_json()
-        datos['sesion']
-        datos['dni']
-        datos[.....]
-    """
+    usr = cache.obtener_usuario_por_sesion(sesion)
+    if usr is None: 
+        return ('usuario no encontrado', 404)    
     
     return {
-        estado: ok,
-        usuario: {dni:'',nombre:''}
+        'sesion': sesion,
+        'usuario': usr
     }
 
 
@@ -100,11 +117,8 @@ def obtener_datos(sesion):
 @jsonapi
 def actualizar_datos(sesion):
 
-    
-    """
-        datos = request.get_json()
-        usuario = datos['usuario']
-    """
+    usr = request.get_json()
+    cache._setear_usuario_cache(usr, sesion)
     
     return {
         estado: ok        
