@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "/src/gitlab/stacks"
+		},
+		{
+			"path": "/src/github/microservices_common"
+		}
+	],
+	"settings": {}
+}

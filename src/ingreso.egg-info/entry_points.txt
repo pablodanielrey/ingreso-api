@@ -1,0 +1,3 @@
+[console_scripts]
+rest = ingreso.api.rest.main:main
+
