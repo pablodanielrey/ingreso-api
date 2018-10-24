@@ -40,4 +40,3 @@ class UserCache:
             return None
         self._setear_usuario_cache(usr)
         return usr
-

@@ -20,6 +20,7 @@ API_BASE=os.environ['API_BASE']
 api = API()
 
 USUARIOS_URL = os.environ['USERS_API_URL']
+LOGIN_URL = os.environ['LOGIN_API_URL']
 REDIS_HOST = os.environ.get('REDIS_HOST')
 REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
 
@@ -91,6 +92,15 @@ def verificar_dni(dni):
     if usr is None: # or 'tipo' not in usr or usr['tipo'] is None or usr['tipo'] != 'ingresante':
         return ('no permitido', 401)
 
+    '''
+    Verifico de que no tenga correo
+    '''
+    correos = usr['mails']  
+    no_eliminados = [c for c in correos if not c['eliminado'] and c['confirmado']]  
+    if len(no_eliminados) > 0:
+        return ('no permitido', 401)
+    
+
     sid = str(uuid.uuid4())[:8]
     u = _parsear_usuario(usr)
     cache._setear_usuario_cache(u, sid)    
@@ -118,10 +128,18 @@ def obtener_datos(sesion):
 def actualizar_datos(sesion):
 
     usr = request.get_json()
+    usuario = cache.obtener_usuario_por_sesion(sesion)
+    if usuario is None:
+        return ('usuario no encontrado', 404)    
+    
+    usr['id'] = usuario['id']
     cache._setear_usuario_cache(usr, sesion)
     
+    '''
+    Enviar correo con el codigo de confirmacion
+    '''
     return {
-        estado: ok        
+        'estado': 'ok'
     }
 
 @app.route(API_BASE + 'datos/<sesion>/confirmar', methods=['POST'], provide_automatic_options=False)
