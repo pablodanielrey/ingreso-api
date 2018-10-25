@@ -126,32 +126,71 @@ def obtener_datos(sesion):
 @app.route(API_BASE + '/datos/<sesion>', methods=['POST'], provide_automatic_options=False)
 @jsonapi
 def actualizar_datos(sesion):
-
+    """
+    usr: {
+        'clave': contraseña ingresada,
+        'correo': correo ingresado,
+        'genero': genero de la persona
+    }
+    """
     usr = request.get_json()
     usuario = cache.obtener_usuario_por_sesion(sesion)
     if usuario is None:
         return ('usuario no encontrado', 404)    
     
-    usr['id'] = usuario['id']
-    cache._setear_usuario_cache(usr, sesion)
+    codigo = str(uuid.uuid4())[:5]
+    usuario['genero'] = usr['genero']
+    cache._setear_usuario_cache(usuario, sesion)    
+    cache.actualizar_datos_sesion(sid=sesion, correo=usr['correo'], clave=usr['clave'], codigo=codigo)    
+
     
     '''
     Enviar correo con el codigo de confirmacion
     '''
+
+    mail = usr['correo']
+    nombre = usuario['nombre'] + ' ' + usuario['apellido']
+    #tmpl = cuerpo = MailsModel.obtener_template('confirmar_correo.tmpl')
+    #cuerpo = tmpl.render(nombre=nombre, codigo=codigo)
+    #MailsModel.enviar_correo('sistemas@econo.unlp.edu.ar', mail, 'Confirmación de cuenta alternativa de contacto FCE', cuerpo)    
+
     return {
         'estado': 'ok'
     }
 
-@app.route(API_BASE + 'datos/<sesion>/confirmar', methods=['POST'], provide_automatic_options=False)
+@app.route(API_BASE + '/datos/<sesion>/confirmar', methods=['POST'], provide_automatic_options=False)
 @jsonapi
 def confirmar_cambios(sesion):
-    """
-        datos = request.get_json()
-        codigo = datos['codigo']
-    """
-    return {
-        estado: ok
-    }
+
+    datos = request.get_json()
+    codigo = datos['codigo']
+
+    info = cache.obtener_ingresante_por_sesion(sesion)
+
+    if info is None:
+        return ('inválido',401)
+
+    if 'codigo' in info and info['codigo'] == codigo:
+        # persistir usuario
+        usr = cache.obtener_usuario_por_sesion(sesion)
+        if usr is None:
+            return ('inválido',401)
+
+        query = '{}/usuarios/{}'.format(USUARIOS_URL, usr['id']) 
+        r = api.post(query, data=usr)
+
+        # persistir correo
+
+        # persistir clave
+        query = '{}/usuario/{}/clave'.format(LOGIN_URL, info['uid']) 
+        r = api.post(query, data={'clave':info['clave']})
+
+        """
+        enviar correo de finalización
+        """
+        return { 'estado': 'ok' }
+
+    return ('código incorrecto',401)
 
 
 

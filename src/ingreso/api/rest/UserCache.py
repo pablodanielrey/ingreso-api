@@ -40,3 +40,17 @@ class UserCache:
             return None
         self._setear_usuario_cache(usr)
         return usr
+
+    def actualizar_datos_sesion(self, sid, correo, clave, codigo):
+        key = 'ingresante_sesion_{}'.format(sid)
+        self.redis_.hset(key, 'correo', correo)
+        self.redis_.hset(key, 'clave', clave)
+        self.redis_.hset(key, 'codigo', codigo)
+
+    
+    def obtener_ingresante_por_sesion(self, sid, token=None):
+        info = self.redis_.hgetall('ingresante_sesion_{}'.format(sid))
+        if len(info.keys()) > 0:
+            return info
+        else:
+            return None        
