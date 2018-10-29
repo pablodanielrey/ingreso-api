@@ -95,10 +95,13 @@ def verificar_dni(dni):
     '''
     Verifico de que no tenga correo
     '''
-    correos = usr['mails']  
-    no_eliminados = [c for c in correos if not c['eliminado'] and c['confirmado']]  
-    if len(no_eliminados) > 0:
-        return ('no permitido', 401)
+    query = '{}/usuarios/{}/precondiciones'.format(USUARIOS_URL, usr['id']) 
+    r = api.get(query, token=None)
+    if not r.ok:
+        return r
+    pre_json = r.json()
+    if 'correo' in pre_json and pre_json['correo']:
+        return ('el usuario ya fue registrado', 401)
     
 
     sid = str(uuid.uuid4())[:8]
@@ -170,30 +173,38 @@ def confirmar_cambios(sesion):
     if info is None:
         return ('inválido',401)
 
-    if 'codigo' in info and info['codigo'] == codigo:
-        # persistir usuario
-        usr = cache.obtener_usuario_por_sesion(sesion)
-        if usr is None:
-            return ('inválido',401)
+    if 'codigo' not in info or info['codigo'] != codigo:
+        return ('código incorrecto',401)
 
-        query = '{}/usuarios/{}'.format(USUARIOS_URL, usr['id']) 
-        r = api.post(query, data=usr)
+    # persistir usuario
+    usr = cache.obtener_usuario_por_sesion(sesion)
+    if usr is None:
+        return ('inválido',401)
 
-        # persistir correo
+    query = '{}/usuarios/{}'.format(USUARIOS_URL, usr['id']) 
+    r = api.post(query, data=usr)
 
-        # persistir clave
-        query = '{}/usuario/{}/clave'.format(LOGIN_URL, info['uid']) 
-        r = api.post(query, data={'clave':info['clave']})
+    if not r.ok:
+        return r
 
-        """
-        enviar correo de finalización
-        """
-        return { 'estado': 'ok' }
+    # persistir clave
+    query = '{}/usuario/{}/clave'.format(LOGIN_URL, info['uid']) 
+    r = api.post(query, data={'clave':info['clave']})
 
-    return ('código incorrecto',401)
+    if not r.ok:
+        return r
+        
+    # persistir correo
+    query = '{}/usuarios/{}/correos/sin_confirmacion'.format(USUARIOS_URL, info['uid']) 
+    r = api.post(query, data={'email':info['correo']})
 
+    if not r.ok:
+        return r
 
-
+    """
+    enviar correo de finalización
+    """
+    return { 'estado': 'ok' }
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>', methods=['GET','POST','PUT','PATCH'])
