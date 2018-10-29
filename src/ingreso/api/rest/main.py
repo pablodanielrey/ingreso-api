@@ -10,6 +10,7 @@ from flask_jsontools import jsonapi
 from rest_utils import register_encoder
 from .API import API
 from .UserCache import UserCache
+from ingreso.model.MailsModel import MailsModel
 
 VERIFY_SSL = bool(int(os.environ.get('VERIFY_SSL',0)))
 OIDC_URL = os.environ['OIDC_URL']
@@ -153,9 +154,9 @@ def actualizar_datos(sesion):
 
     mail = usr['correo']
     nombre = usuario['nombre'] + ' ' + usuario['apellido']
-    #tmpl = cuerpo = MailsModel.obtener_template('confirmar_correo.tmpl')
-    #cuerpo = tmpl.render(nombre=nombre, codigo=codigo)
-    #MailsModel.enviar_correo('sistemas@econo.unlp.edu.ar', mail, 'Confirmación de cuenta alternativa de contacto FCE', cuerpo)    
+    tmpl = cuerpo = MailsModel.obtener_template('confirmar_correo.tmpl')
+    cuerpo = tmpl.render(nombre=nombre, codigo=codigo)
+    MailsModel.enviar_correo('sistemas@econo.unlp.edu.ar', mail, 'Ingreso FCE', cuerpo)    
 
     return {
         'estado': 'ok'
@@ -204,6 +205,16 @@ def confirmar_cambios(sesion):
     """
     enviar correo de finalización
     """
+    
+    mail = info['correo']
+    usuario = usr['dni']
+    clave = info['clave']
+    nombre = usr['nombre'] + ' ' + usr['apellido']
+    tmpl = cuerpo = MailsModel.obtener_template('finalizacion.tmpl')
+    cuerpo = tmpl.render(nombre=nombre, codigo=codigo, usuario=usuario, clave=clave)
+    MailsModel.enviar_correo('sistemas@econo.unlp.edu.ar', mail, 'Bienvenido a FCE', cuerpo)    
+    
+
     return { 'estado': 'ok' }
 
 @app.route('/', defaults={'path': ''})
