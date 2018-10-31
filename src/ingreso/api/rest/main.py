@@ -84,13 +84,12 @@ def _parsear_usuario(usr):
 @jsonapi
 def verificar_dni(dni):
 
-    query = '{}/usuarios/'.format(USUARIOS_URL) 
-    r = api.get(query, params={'q':dni}, token=None)
+    query = '{}/usuario_por_dni/{}'.format(USUARIOS_URL, dni)
+    r = api.get(query, token=None)
     if not r.ok:
         return r
-    usrs = r.json()
-    usr = usrs[0] if len(usrs) else None
-    if usr is None: # or 'tipo' not in usr or usr['tipo'] is None or usr['tipo'] != 'ingresante':
+    usr = r.json()
+    if ((usr is None) or ('tipo' not in usr) or (usr['tipo'] is None) or (usr['tipo'] != 'ingresante')):
         return ('no permitido', 401)
 
     '''
