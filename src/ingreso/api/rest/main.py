@@ -161,6 +161,19 @@ def actualizar_datos(sesion):
         'estado': 'ok'
     }
 
+@app.route(API_BASE + '/sesion/<sesion>/correo', methods=['GET'], provide_automatic_options=False)
+@jsonapi
+def obtner_correo_sesion(sesion):
+
+    info = cache.obtener_ingresante_por_sesion(sesion)
+    if info is None:
+        return ('inválido',401) 
+
+    if 'correo' in info:
+        return info['correo']
+
+    return None   
+
 @app.route(API_BASE + '/datos/<sesion>/confirmar', methods=['POST'], provide_automatic_options=False)
 @jsonapi
 def confirmar_cambios(sesion):
